@@ -1,0 +1,56 @@
+version: '3.7'
+
+services:
+
+  nginx:
+    image: nginx:1.19.0
+    volumes:
+      - ./nginx/:/etc/nginx/conf.d/
+      - ./nginx/wordpress.conf:/etc/nginx/conf.d/wordpress.conf
+      - ./logs/nginx:/var/log/nginx
+      - ./wordpress/html:/var/www/html
+    restart: always
+    environment:
+      TZ: Asia/Tokyo
+    links:
+      - wordpress
+
+  wordpress:
+    image: wordpress:5.4.2-php7.4-fpm
+    environment:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: ${DB_NAME}
+      WORDPRESS_DB_USER: ${DB_USER}
+      WORDPRESS_DB_PASSWORD: ${DB_USER_PASS}
+    volumes:
+      - ./wordpress/html:/var/www/html
+    restart: always
+    links:
+        - mysql
+
+  mysql:
+    image: mariadb:10.5.3
+    volumes:
+      - ./mariadb/db-data:/var/lib/mysql
+      - ./initdb.d:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_USER_PASS}
+    restart: always
+
+  https-portal:
+    image: steveltn/https-portal:1.10.1
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./ssl_certs:/var/lib/https-portal
+    links:
+      - nginx
+    restart: always
+    environment:
+      DOMAINS: '${HOST_DOMAIN} -> http://nginx:80'
+      STAGE: '${PRODUCTION_STAGE}'
+      CLIENT_MAX_BODY_SIZE: 64M
